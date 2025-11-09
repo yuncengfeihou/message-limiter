@@ -1,0 +1,16 @@
+<div id="message-limiter-settings-popup">
+    <div class="list-group-item">
+        <div class="d-flex w-100 justify-content-between">
+            <h4 class="mb-1" title="开启或关闭消息限制功能。">启用消息限制</h4>
+            <input id="limiter_enabled" type="checkbox" {{#if enabled}}checked{{/if}}>
+        </div>
+        <small class="text-muted">开启后，聊天窗口将只显示最新的 N 条消息。</small>
+    </div>
+    <div class="list-group-item">
+        <div class="d-flex w-100 justify-content-between">
+            <h4 class="mb-1" title="设置聊天窗口中显示的最大消息数量。">显示消息数量</h4>
+            <input id="limiter_count" type="number" class="text_pole" value="{{limit}}" min="1" max="500" style="width: 80px;">
+        </div>
+        <small class="text-muted">这不会删除任何聊天记录，只影响显示。</small>
+    </div>
+</div>
