@@ -1,0 +1,10 @@
+/* style.css */
+#chat-limiter-toggle.limiter-active {
+    color: var(--accent-color); /* 当插件激活时，按钮颜色变为主题强调色 */
+    background-color: var(--accent-color-transparent);
+}
+
+#chat-limiter-toggle.limiter-active:hover {
+    color: var(--accent-color-hover);
+    background-color: var(--accent-color-transparent-hover);
+}
