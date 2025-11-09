@@ -1,6 +1,5 @@
 import {
-    extension_settings,
-    renderExtensionTemplateAsync
+    extension_settings
 } from '../../../extensions.js';
 import {
     saveSettingsDebounced,
@@ -25,19 +24,68 @@ const defaultSettings = {
     messageLimit: 20,
 };
 
+// --- HTML 和 CSS 模板 ---
+
+const settingsHtml = `
+<div class="inline-drawer">
+    <div class="inline-drawer-toggle inline-drawer-header">
+        <b>聊天消息数量限制器</b>
+        <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+    </div>
+    <div class="inline-drawer-content">
+        <div class="chat-limiter-setting-item">
+            <label for="chat-limiter-enabled">启用插件</label>
+            <div class="SillyTavernSwitch">
+                <input id="chat-limiter-enabled" type="checkbox">
+                <label for="chat-limiter-enabled"></label>
+            </div>
+        </div>
+        <div class="chat-limiter-setting-item">
+            <label for="chat-limiter-count">显示的消息数量</label>
+            <input id="chat-limiter-count" type="number" class="text_pole" min="1" max="500" placeholder="例如: 20">
+        </div>
+        <div class="description">
+            实时限制聊天界面显示的消息数量。只影响视觉显示，不会删除任何实际的聊天数据。关闭插件后将恢复正常显示。
+        </div>
+    </div>
+</div>
+`;
+
+const buttonHtml = `
+<button id="chat-limiter-toggle" class="fa-solid fa-arrows-down-to-line" title="切换聊天消息数量限制"></button>
+`;
+
+const styleCss = `
+#chat-limiter-toggle.limiter-active {
+    color: var(--accent-color);
+    background-color: var(--accent-color-transparent);
+}
+
+#chat-limiter-toggle.limiter-active:hover {
+    color: var(--accent-color-hover);
+    background-color: var(--accent-color-transparent-hover);
+}
+
+.chat-limiter-setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+`;
+
+// --- 插件逻辑 ---
+
 /**
  * 加载插件设置，如果不存在则使用默认值
  */
 function loadSettings() {
-    // 确保设置对象存在
     extension_settings[extensionName] = extension_settings[extensionName] || {};
-    // 合并默认设置和已保存的设置
     Object.assign(extension_settings[extensionName], {
         ...defaultSettings,
         ...extension_settings[extensionName],
     });
 
-    // 更新UI元素的状态以匹配设置
     $('#chat-limiter-enabled').prop('checked', extensionSettings().isEnabled);
     $('#chat-limiter-count').val(extensionSettings().messageLimit);
     updateToggleButtonState();
@@ -60,7 +108,6 @@ function onSettingsChange() {
     saveSettingsDebounced();
     updateToggleButtonState();
 
-    // 如果设置发生变化，立即应用限制
     applyMessageLimit();
 }
 
@@ -73,25 +120,28 @@ function onToggleClick() {
     updateToggleButtonState();
 
     if (extensionSettings().isEnabled) {
-        // 启用时，立即应用限制
         applyMessageLimit();
     } else {
-        // 禁用时，重新加载聊天以显示所有消息
         reloadCurrentChat();
     }
 }
 
 /**
  * 核心功能：应用消息数量限制。
- * 这是一个“完全重绘”函数，用于初始化或在需要时刷新整个受限视图。
  */
 function applyMessageLimit() {
-    // 如果插件未启用，则不执行任何操作
     if (!extensionSettings().isEnabled) {
+        // 如果插件被禁用，但当前视图是受限的，需要重新加载以恢复完整视图
+        // 我们通过检查是否存在一个特殊的标记来判断
+        if ($('#chat').attr('data-limiter-active')) {
+            reloadCurrentChat();
+        }
         return;
     }
+    
+    // 给聊天窗口添加一个标记，表示它当前是受限视图
+    $('#chat').attr('data-limiter-active', 'true');
 
-    // 安全检查：如果用户正在编辑消息，则中止操作以防丢失输入
     if ($('#chat .edit_textarea').length > 0) {
         console.log("[Chat Limiter] 用户正在编辑消息，已取消重绘。");
         return;
@@ -100,41 +150,33 @@ function applyMessageLimit() {
     const limit = extensionSettings().messageLimit;
     if (limit <= 0) return;
 
-    // 清空当前的聊天DOM
     clearChat();
 
-    // 从完整的 `chat` 数组中获取最后 `limit` 条消息
     const messagesToDisplay = chat.slice(-limit);
 
-    // 逐条渲染这些消息
     messagesToDisplay.forEach(message => {
         const originalIndex = chat.indexOf(message);
         addOneMessage(message, {
-            scroll: false, // 在循环中禁止滚动
-            forceId: originalIndex // 关键：确保DOM的mesid与它在完整chat数组中的索引一致
+            scroll: false,
+            forceId: originalIndex
         });
     });
 
-    // 渲染完成后，刷新UI并滚动到底部
     refreshSwipeButtons();
     scrollChatToBottom();
-
-    // 移除与本插件功能冲突的“加载更多消息”按钮
     $('#show_more_messages').remove();
 }
 
 /**
- * 处理新消息的增量更新，比完全重绘更高效。
+ * 处理新消息的增量更新
  */
 function handleNewMessage() {
     if (!extensionSettings().isEnabled) return;
 
-    // 使用setTimeout确保此代码在SillyTavern的原生addOneMessage之后执行
     setTimeout(() => {
         const limit = extensionSettings().messageLimit;
         const messageElements = $('#chat .mes');
 
-        // 如果DOM中的消息数量超过了限制，则移除最旧的一条
         if (messageElements.length > limit) {
             messageElements.first().remove();
         }
@@ -142,31 +184,25 @@ function handleNewMessage() {
 }
 
 /**
- * 处理消息删除后的视图补充。
+ * 处理消息删除后的视图补充
  */
 function handleDeletedMessage() {
     if (!extensionSettings().isEnabled) return;
 
-    // 同样使用setTimeout确保在原生删除操作后执行
     setTimeout(() => {
         const limit = extensionSettings().messageLimit;
         const messageElements = $('#chat .mes');
         const currentCount = messageElements.length;
 
-        // 如果DOM消息数小于限制，并且后端还有更多历史消息，则进行补充
         if (currentCount < limit && chat.length > currentCount) {
-            // 找到当前显示的最老消息的ID
             const oldestMesId = parseInt(messageElements.first().attr('mesid'));
-            
-            // 计算需要补充的消息在完整chat数组中的索引
             const messageToAddIndex = oldestMesId - 1;
 
             if (messageToAddIndex >= 0) {
-                // 在顶部插入这条更早的消息
                 addOneMessage(chat[messageToAddIndex], {
                     scroll: false,
                     forceId: messageToAddIndex,
-                    insertBefore: oldestMesId // 在最老的消息前面插入
+                    insertBefore: oldestMesId
                 });
             }
         }
@@ -175,29 +211,28 @@ function handleDeletedMessage() {
 
 // 插件主入口
 jQuery(async () => {
-    // 1. 加载并注入UI模板
-    try {
-        const settingsHtml = await renderExtensionTemplateAsync(extensionName, 'settings');
-        $('#extensions_settings').append(settingsHtml);
-        
-        const buttonHtml = await renderExtensionTemplateAsync(extensionName, 'button');
-        $('#data_bank_wand_container').append(buttonHtml);
-    } catch (error) {
-        console.error(`[${extensionName}] Failed to load templates:`, error);
-        return;
-    }
+    // 1. 将CSS注入到页面
+    $('head').append(`<style>${styleCss}</style>`);
 
-    // 2. 绑定UI事件
+    // 2. 将HTML注入到页面
+    $('#extensions_settings').append(settingsHtml);
+    $('#data_bank_wand_container').append(buttonHtml);
+
+    // 3. 绑定UI事件
     $('#chat-limiter-enabled, #chat-limiter-count').on('change', onSettingsChange);
     $('#chat-limiter-toggle').on('click', onToggleClick);
 
-    // 3. 绑定SillyTavern核心事件
-    eventSource.on(event_types.CHAT_CHANGED, applyMessageLimit);
-    eventSource.on(event_types.MESSAGE_DELETED, handleDeletedMessage); // 使用更精细的删除处理
+    // 4. 绑定SillyTavern核心事件
+    eventSource.on(event_types.CHAT_CHANGED, () => {
+        // 当聊天切换时，移除标记，让applyMessageLimit决定是否重绘
+        $('#chat').removeAttr('data-limiter-active');
+        applyMessageLimit();
+    });
+    eventSource.on(event_types.MESSAGE_DELETED, handleDeletedMessage);
     eventSource.on(event_types.MESSAGE_SENT, handleNewMessage);
     eventSource.on(event_types.MESSAGE_RECEIVED, handleNewMessage);
 
-    // 4. 加载设置
+    // 5. 加载设置
     loadSettings();
 
     console.log(`[${extensionName}] Plugin loaded successfully.`);
