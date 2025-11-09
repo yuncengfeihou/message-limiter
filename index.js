@@ -14,7 +14,7 @@ import {
 } from '../../../../script.js';
 
 // 插件的唯一名称，必须与文件夹名一致
-const extensionName = "chat-limiter";
+const extensionName = "message-limiter";
 // 插件设置的快捷方式
 const extensionSettings = () => extension_settings[extensionName];
 
