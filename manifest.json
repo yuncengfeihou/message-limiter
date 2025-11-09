@@ -1,0 +1,11 @@
+{
+    "display_name": "聊天消息限制器 (Message Limiter)",
+    "loading_order": 10,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "",
+    "author": "Your Name (with AI assistance)",
+    "version": "1.0.0",
+    "homePage": ""
+}
