@@ -1,11 +1,11 @@
 {
-    "display_name": "聊天消息限制器 (Message Limiter)",
+    "display_name": "聊天消息数量限制器 (Chat Message Limiter)",
     "loading_order": 10,
     "requires": [],
     "optional": [],
     "js": "index.js",
-    "css": "",
-    "author": "Your Name (with AI assistance)",
+    "css": "style.css",
+    "author": "Your Name",
     "version": "1.0.0",
     "homePage": ""
 }
